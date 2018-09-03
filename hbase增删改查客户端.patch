@@ -1,0 +1,246 @@
+Index: src/main/java/com/hbaseclient/HbaseClient.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/com/hbaseclient/HbaseClient.java	(revision cbc51f5cc7e29df48d41c2f6a6e9c1b9b6d4ebd1)
++++ src/main/java/com/hbaseclient/HbaseClient.java	(date 1535429026016)
+@@ -3,8 +3,15 @@
+ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.hbase.*;
+ import org.apache.hadoop.hbase.client.*;
++import org.apache.hadoop.hbase.filter.CompareFilter;
++import org.apache.hadoop.hbase.filter.Filter;
++import org.apache.hadoop.hbase.filter.FilterList;
++import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
++import org.apache.hadoop.hbase.util.Bytes;
+ 
+ import java.io.IOException;
++import java.util.ArrayList;
++import java.util.List;
+ 
+ public class HbaseClient {
+     public static Configuration conf;
+@@ -24,33 +31,206 @@
+             e.printStackTrace();
+         }
+     }
+-    public static  void createTable(String tableNameStr,String [] familyNames)
+-    {
++
++    //如果表已经存在先删除表然后再创建
++    public static void createTable(String tableNameStr, String[] familyNames) {
+         System.out.printf("开始创建表");
+         try {
+-            TableName tableName=TableName.valueOf(tableNameStr);
+-            if(admin.tableExists(tableName))
+-            {
++            TableName tableName = TableName.valueOf(tableNameStr);
++            if (admin.tableExists(tableName)) {
++                admin.disableTable(tableName);
++                admin.deleteTable(tableName);
++                System.out.printf(tableName + "已经存在，正在删除");
++            }
++            HTableDescriptor tableDescriptor = new HTableDescriptor(tableName);
++            if (null != familyNames && familyNames.length > 0) {
++                for (String familyname : familyNames) {
++                    tableDescriptor.addFamily(new HColumnDescriptor(familyname));
++                }
++            }
++            admin.createTable(tableDescriptor);
++            System.out.printf("创建表结束");
++        } catch (IOException e) {
++            e.printStackTrace();
++        }
++
++    }
++
++    /*
++     插入数据
++     */
++    public static void insertData(String tableName, String rowId, String familyName, String qualifier, String value) {
++        try {
++            System.out.println("开始插入数据");
++            Table table = connection.getTable(TableName.valueOf(tableName));
++            Put put = new Put(rowId.getBytes());
++            put.addColumn(familyName.getBytes(), qualifier.getBytes(), value.getBytes());
++            table.put(put);
++        } catch (IOException e) {
++            e.printStackTrace();
++        }
++        System.out.println("插入数据结束");
++    }
++
++    //删除单行
++    public static void deleteRow(String tableName, String rowkey) {
++        try {
++            System.out.printf("开始删除行" + rowkey);
++            Table table = connection.getTable(TableName.valueOf(tableName));
++            Delete d1 = new Delete(rowkey.getBytes());
++            table.delete(d1);
++            System.out.printf("删除行" + rowkey + "成功");
++        } catch (Exception e) {
++            e.printStackTrace();
++        }
++
++
++    }
++
++    /*
++     删除单个行
++     */
++    public static void dropTable(String tableNameStr) {
++        try {
++            System.out.printf("开始删除表");
++            Admin admin = connection.getAdmin();
++            TableName tableName = TableName.valueOf(tableNameStr);
++            admin.disableTable(tableName);
++            admin.deleteTable(tableName);
++            admin.close();
++            System.out.printf("删除表结束");
++        } catch (IOException e) {
++            e.printStackTrace();
++        }
++    }
++
++    /*
++    查询所有数据
++     */
++    public static void queryAll(String tableName) {
++        System.out.printf("开始查询所有数据");
++        try {
++            Table table = connection.getTable(TableName.valueOf(tableName));
++            ResultScanner rs = table.getScanner(new Scan());
++            for (Result r : rs) {
++                System.out.println("获得到rowkey:" + new String(r.getRow()));
++                for (Cell keyValue : r.rawCells()) {
++                    System.out.println("列:" + new String(CellUtil.cloneFamily(keyValue))
++                            + ":" + new String(CellUtil.cloneQualifier(keyValue)) + "===值:"
++                            + new String(CellUtil.cloneValue(keyValue)));
++                }
++            }
++            rs.close();
++        } catch (IOException e) {
++            e.printStackTrace();
++        }
++        System.out.printf("查询所有数据结束");
++    }
++
++    /**
++     * 根据rowid查询
++     *
++     * @throws IOException
++     */
++    public static void queryByRowId(String tableName, String rowId) {
++        try {
++            Table table = connection.getTable(TableName.valueOf(tableName));
++            Get scan = new Get(rowId.getBytes());
++            Result r = table.get(scan);
++            System.out.printf("获得rowkey:" + new String(r.getRow()));
++            for (Cell keyValue : r.rawCells()) {
++                System.out.println("列:" + new String(CellUtil.cloneFamily(keyValue))
++                        + ":" + new String(CellUtil.cloneQualifier(keyValue)) + "===值:"
++                        + new String(CellUtil.cloneValue(keyValue)));
++            }
++        } catch (IOException e) {
++            e.printStackTrace();
++        }
++    }
+ 
++    /*
++     单条件过滤查询
++     */
++    public static void queryByCondition(String tableName, String familyName, String qualifier, String value) {
++        try {
++            Table table = connection.getTable(TableName.valueOf(tableName));
++            Filter filter = new SingleColumnValueFilter(Bytes.toBytes(familyName),
++                    Bytes.toBytes(qualifier),
++                    CompareFilter.CompareOp.EQUAL,
++                    Bytes.toBytes(value)
++            );
++            Scan scan = new Scan();
++            scan.setFilter(filter);
++            ResultScanner rs = table.getScanner(scan);
++            for (Result r : rs) {
++                System.out.println("获得到rowkey:" + new String(r.getRow()));
++                for (Cell keyValue : r.rawCells()) {
++                    System.out.println("列:" + new String(CellUtil.cloneFamily(keyValue))
++                            + ":" + new String(CellUtil.cloneQualifier(keyValue)) + "===值:"
++                            + new String(CellUtil.cloneValue(keyValue)));
++                }
+             }
++        } catch (IOException e) {
++            e.printStackTrace();
++        }
+ 
+-        }
+-        catch (IOException e)
+-        {
++    }
++
++    /*
++    多条件过滤查询
++     */
++    public static void queryByConditions(String tableName, String familyNames[], String qualifiers[], String values[]) {
++        try {
++            Table table = connection.getTable(TableName.valueOf(tableName));
++            List<Filter> filters = new ArrayList<Filter>();
++            if (null != familyNames && familyNames.length > 0) {
++                int i = 0;
++                for (String familyName : familyNames) {
++                    Filter filter = new SingleColumnValueFilter(Bytes.toBytes(familyName),
++                            Bytes.toBytes(qualifiers[i]),
++                            CompareFilter.CompareOp.EQUAL,
++                            Bytes.toBytes(values[i])
++                    );
++                    filters.add(filter);
++                    i++;
++                }
++            }
++            FilterList filterList = new FilterList(filters);
++            Scan scan = new Scan();
++            scan.setFilter(filterList);
++            ResultScanner rs = table.getScanner(scan);
++            for (Result r : rs) {
++                System.out.println("获得到rowkey:" + new String(r.getRow()));
++                for (Cell keyValue : r.rawCells()) {
++                    System.out.println("列:" + new String(CellUtil.cloneFamily(keyValue))
++                            + ":" + new String(CellUtil.cloneQualifier(keyValue)) + "===值:"
++                            + new String(CellUtil.cloneValue(keyValue)));
++                }
++            }
++        } catch (IOException e) {
+             e.printStackTrace();
+         }
+ 
+-
+     }
+ 
+ 
+     public static void main(String[] args) throws IOException {
+-        HTableDescriptor table = new HTableDescriptor(TableName.valueOf("table1"));
+-        table.addFamily(new HColumnDescriptor("group1")); //创建表时至少加入一个列组
+-        if (admin.tableExists(table.getTableName())) {
+-            admin.disableTable(table.getTableName());
+-            admin.deleteTable(table.getTableName());
+-        }
+-        admin.createTable(table);
++        String[] familyNames = {"gender", "grade"};
++        //createTable("score", familyNames);
++       /* insertData("score", "1", "grade", "chines", "80");
++        insertData("score", "1", "grade", "math", "70");
++        insertData("score", "1", "grade", "english", "90");
++        insertData("score", "2", "grade", "chinese", "90");
++        insertData("score", "2", "grade", "math", "70");
++        insertData("score", "2", "grade", "english", "60");
++       */
++        // queryAll("score");
++        //        deleteRow("score", "2");
++        //dropTable("score");
++        //queryByRowId("score", "1");
++        //queryByCondition("score","gender","male","1");
++        String qualifiers[] = {"male", "math"};
++        String values[] = {"1", "70"};
++        queryByConditions("score", familyNames, qualifiers, values);
+     }
+ }

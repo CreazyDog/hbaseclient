@@ -1,17 +1,17 @@
 package com.hbaseclient;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
-import org.apache.hadoop.hbase.filter.CompareFilter;
-import org.apache.hadoop.hbase.filter.Filter;
-import org.apache.hadoop.hbase.filter.FilterList;
-import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
+import org.apache.hadoop.hbase.filter.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 public class HbaseClient {
     public static Configuration conf;
@@ -83,8 +83,6 @@ public class HbaseClient {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-
     }
 
     /*
@@ -209,11 +207,39 @@ public class HbaseClient {
         } catch (IOException e) {
             e.printStackTrace();
         }
+     }
+     public  static  void  getTableDesc(String tableName)
+     {
+         try {
+             Set<String> columnList = new TreeSet<String>();
+             Table table = connection.getTable(TableName.valueOf(tableName));
+             Scan scan=new Scan();
+             scan.setFilter(new PageFilter(100));
+             ResultScanner results = table.getScanner(scan);
+             for (Result r : results) {
+                 for (Cell keyValue : r.rawCells()) {
+                     columnList.add(
+                             new String(CellUtil.cloneFamily(keyValue)) + "\t" +
+                                     new String(CellUtil.cloneQualifier(keyValue)));
+                 }
+             }
+             for(String s:columnList)
+             {
+                 System.out.println(s);
+             }
+         }
+         catch (Exception e)
+         {
+             e.printStackTrace();
+         }
+     }
 
-    }
+
 
 
     public static void main(String[] args) throws IOException {
+        //StringUtils.trimToNull("aaa");
+        getTableDesc("weibo");
         /*String[] familyNames = {"gender", "grade"};
         //createTable("score", familyNames);
        *//* insertData("score", "1", "grade", "chines", "80");
@@ -224,7 +250,7 @@ public class HbaseClient {
         insertData("score", "2", "grade", "english", "60");
        *//*
         // queryAll("score");
-        //        deleteRow("score", "2");
+        //  deleteRow("score", "2");
         //dropTable("score");
         //queryByRowId("score", "1");
         //queryByCondition("score","gender","male","1");
@@ -236,11 +262,25 @@ public class HbaseClient {
         //queryByRowId("weibo", "0000000b53d65261a47d");
         //根据weibo的mid查询微博数据的方法有2种
         //方法1：使用hbase的过滤器Filter，在数据量很小的时候没有问题，数据量上去之后查询缓慢
-        queryByCondition("weibo","cf","7","10908141364");
+        //queryByCondition("weibo", "cf", "7", "109082338759");
         //方法2：微博表weibo的rowKey是根据微博的mid通过一些列算法转换实现的，可以通过转化获取微博表weibo
         //的rowKey，然后通过rowKey来查询单条微博即可
-        String rowKey = HashUtils.getRowKey("109082338759", 3);
-        System.out.printf(rowKey);
-        queryByRowId("weibo", rowKey);
+        //String rowKey = HashUtils.getRowKey("109082338759", 3);
+        //mid：109082338759 rowKey:00000000001965d065c7 url:http://t.sina.com.cn/1356313647/2PW9OpV
+        //System.out.printf(rowKey);
+        //queryByRowId("weibo", rowKey);
+        //根据url来查询微博，也是两种方式，但还是需要通过算法将url转换成rowKey来进行查
+/*
+        System.out.println(UrlUtils.url2Mid("" +
+                "https://weibo.com/1742566624/GwK0XgB91?ref=home&rid=9_0_8_3076372047766889666_0_0&type=comment#_rnd1535449374216"
+        ));
+      */
+        //System.out.println(HashUtils.getRowKey("4280110032735399"));
+        //System.out.println(HashUtils.getRowKey("4278033793956035", 3));
+       /* String url="http://t.sina.com.cn/1650479997/zaAVGEtY9";
+        String mid=UrlUtils.url2Mid(url);
+        String rowKey=HashUtils.getRowKey(mid,3);*/
+        //queryByRowId("weibo","73a0000f32dcb0d5fb64");
+        StringUtils.trimToNull("a");
     }
 }
