@@ -233,13 +233,30 @@ public class HbaseClient {
              e.printStackTrace();
          }
      }
+     public  static  void queryByURL(String url)
+     {
+         String mid=UrlUtils.url2Mid(url);
+         System.out.println("mid=="+mid);
+         String rowKey=HashUtils.getRowKey(mid,3);
+         System.out.println("rowKey=="+rowKey);
+         queryByRowId("weibo",rowKey);
 
-
-
-
+     }
+     /*
+     根据mid查询微博信息
+      */
+     public  static  void queryByMid(String mid)
+     {
+         //首先将mid转换成rowkey
+         String rowKey = HashUtils.getRowKey(mid, 3);
+         //然后根据rowkey获取微博内容
+         queryByRowId("weibo", rowKey);
+     }
     public static void main(String[] args) throws IOException {
+         queryByMid("4280553765613567");
+        //queryByURL("https://weibo.com/1872005590/GxNzqnylp");
         //StringUtils.trimToNull("aaa");
-        getTableDesc("weibo");
+        //getTableDesc("weibo");
         /*String[] familyNames = {"gender", "grade"};
         //createTable("score", familyNames);
        *//* insertData("score", "1", "grade", "chines", "80");
@@ -281,6 +298,5 @@ public class HbaseClient {
         String mid=UrlUtils.url2Mid(url);
         String rowKey=HashUtils.getRowKey(mid,3);*/
         //queryByRowId("weibo","73a0000f32dcb0d5fb64");
-        StringUtils.trimToNull("a");
     }
 }
